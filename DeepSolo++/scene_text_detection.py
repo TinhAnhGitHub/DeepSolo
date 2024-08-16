@@ -182,13 +182,11 @@ class SceneTextDetection:
     def __init__(
         self,
         model_weight: str,
-        confidence_threshold,
-        config_file:str =  './DeepSolo++/configs/R_50/mlt19_multihead/finetune.yaml'
+        config_file:str =  './configs/R_50/mlt19_multihead/finetune.yaml'
     ):
         self.logger = setup_logger()
         self.cfg = self.setup_cfg(
             model_weight,
-            confidence_threshold,
             config_file
         )
         self.demo = VisualizationDemo(self.cfg)
@@ -199,17 +197,14 @@ class SceneTextDetection:
     def setup_cfg(
         self,
         model_weight: str,
-        confidence_threshold: float, 
         config_file: str
     ):
+        opts = ['MODEL.WEIGHTS', model_weight]
         cfg = get_cfg()
         cfg.merge_from_file(config_file)
-        cfg.MODEL.WEIGHTS = model_weight
-        cfg.MODEL.RETINANET.SCORE_THRESH_TEST = confidence_threshold
-        cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = confidence_threshold
-        cfg.MODEL.FCOS.INFERENCE_TH_TEST = confidence_threshold
-        cfg.MODEL.MEInst.INFERENCE_TH_TEST = confidence_threshold
-        cfg.MODEL.PANOPTIC_FPN.COMBINE.INSTANCES_CONFIDENCE_THRESH = confidence_threshold
+        cfg = get_cfg()
+        cfg.merge_from_file(config_file)
+        cfg.merge_from_list(opts)
         cfg.freeze()
         return cfg
     
