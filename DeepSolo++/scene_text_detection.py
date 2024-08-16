@@ -10,6 +10,8 @@ import torch
 import multiprocessing as mp
 import bisect
 import atexit
+from adet.data.augmentation import Pad
+
 from detectron2.utils.logger import setup_logger
 from detectron2.data import MetadataCatalog
 from detectron2.engine.defaults import DefaultPredictor
@@ -18,7 +20,7 @@ from detectron2.utils.visualizer import ColorMode, Visualizer
 from adet.config import get_cfg
 from adet.utils.visualizer import TextVisualizer
 from detectron2.modeling import build_model
-
+import detectron2.data.transforms as T
 
 class ViTAEPredictor:
     def __init__(self, cfg):
