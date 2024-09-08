@@ -182,14 +182,15 @@ class SceneTextDetection:
     def __init__(
         self,
         model_weight: str,
-        config_file:str =  './configs/R_50/mlt19_multihead/finetune.yaml'
+        config_file:str =  './configs/R_50/mlt19_multihead/finetune.yaml',
+        parallel: bool= False
     ):
         self.logger = setup_logger()
         self.cfg = self.setup_cfg(
             model_weight,
             config_file
         )
-        self.demo = VisualizationDemo(self.cfg)
+        self.demo = VisualizationDemo(self.cfg, parallel=parallel)
     
 
     
