@@ -216,12 +216,13 @@ class SceneTextDetection:
         output_path: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         
-
         
-        if os.path.isdir(input_path):
-            input_path_list = [os.path.join(input_path, fname) for fname in os.listdir(input_path)]
-        elif isinstance(input_path, list):
+        
+        if isinstance(input_path, list):
             input_path_list = input_path[:]
+            
+        elif os.path.isdir(input_path):
+            input_path_list = [os.path.join(input_path, fname) for fname in os.listdir(input_path)]
         else:
             input_path_list = glob.glob(os.path.expanduser(input_path))
     
