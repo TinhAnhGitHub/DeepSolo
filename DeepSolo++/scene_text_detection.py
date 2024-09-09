@@ -1,6 +1,6 @@
 
 import os
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union
 import glob
 import time
 import cv2
@@ -183,7 +183,8 @@ class SceneTextDetection:
         self,
         model_weight: str,
         config_file:str =  './configs/R_50/mlt19_multihead/finetune.yaml',
-        parallel: bool= False
+        parallel: bool= False,
+        num_gpus: int = torch.cuda.device_count()
     ):
         self.logger = setup_logger()
         self.cfg = self.setup_cfg(
@@ -191,7 +192,8 @@ class SceneTextDetection:
             config_file
         )
         self.demo = VisualizationDemo(self.cfg, parallel=parallel)
-    
+        self.num_gpus = num_gpus if parallel else 1
+        self.predictor = AsyncPredictor(self.cfg, num_gpus=self.num_gpus)
 
     
 
@@ -210,57 +212,99 @@ class SceneTextDetection:
         return cfg
     
 
-    def process_image(
+    def process_images(
         self,
-        input_path: str,
+        input_path: Union[str, List[str]],
         output_path: Optional[str] = None
     ) -> List[Dict[str, Any]]:
-        
-        
-        
         if isinstance(input_path, list):
-            input_path_list = input_path[:]
-            
+            input_path_list = input_path
         elif os.path.isdir(input_path):
-            input_path_list = [os.path.join(input_path, fname) for fname in os.listdir(input_path)]
+            input_path_list = [os.path.join(input_path, fname) for fname in os.listdir(input_path) if fname.lower().endswith(('.png', '.jpg', '.jpeg', '.webp'))]
+        elif os.path.isfile(input_path):
+            input_path_list = [input_path]
         else:
             input_path_list = glob.glob(os.path.expanduser(input_path))
-    
+
         assert input_path_list, "No input images found"
         if output_path:
             os.makedirs(output_path, exist_ok=True)
 
         results = []
 
-        for path in tqdm(input_path_list):
-            img = cv2.cvtColor(cv2.imread(path), cv2.COLOR_BGR2RGB)
-            start_time = time.time()
-            predictions, visualized_output = self.demo.run_on_image(
-                image=img  
+        if len(input_path_list) == 1:
+            # Single image case: use default predictor
+            return self._process_single_image(input_path_list[0], output_path)
+        else:
+            # Multiple images: use AsyncPredictor
+            return self._process_multiple_images(input_path_list, output_path)
+        
+    def _process_single_image(self, image_path: str, output_path: Optional[str]) -> List[Dict[str, Any]]:
+        img = cv2.cvtColor(cv2.imread(image_path), cv2.COLOR_BGR2RGB)
+        start_time = time.time()
+        predictions, visualized_output = self.demo.run_on_image(img)
+
+        self.logger.info(
+            "{}: detected {} instances in {:.2f}s".format(
+                image_path, len(predictions["instances"]), time.time() - start_time
             )
+        )
+
+        cv_image = cv2.cvtColor(np.array(visualized_output.get_image()), cv2.COLOR_RGB2BGR)
+        instances = predictions['instances'].to('cpu')
+
+        result = [{
+            'img': cv_image,
+            'instances': instances
+        }]
+
+        if output_path:
+            input_basename = os.path.splitext(os.path.basename(image_path))[0]
+            out_filename = os.path.join(output_path, f"{input_basename}.webp")
+            cv2.imwrite(out_filename, cv_image, [cv2.IMWRITE_WEBP_QUALITY, 80])
+
+        return result
+
+    def _process_multiple_images(self, image_paths: List[str], output_path: Optional[str]) -> List[Dict[str, Any]]:
+        results = []
+        
+        # Load all images first
+        images = [(path, cv2.cvtColor(cv2.imread(path), cv2.COLOR_BGR2RGB)) for path in image_paths]
+        
+        # Submit all tasks to the AsyncPredictor
+        for _, img in images:
+            self.predictor.put(img)
+
+        # Process results as they become available
+        for idx, (path, img) in enumerate(tqdm(images)):
+            start_time = time.time()
+            predictions = self.predictor.get()
+            
+            visualizer = TextVisualizer(img, self.demo.metadata, instance_mode=self.demo.instance_mode, cfg=self.cfg)
+            
+            if "instances" in predictions:
+                instances = predictions["instances"].to(self.demo.cpu_device)
+                vis_output = visualizer.draw_instance_predictions(predictions=instances)
+
             self.logger.info(
                 "{}: detected {} instances in {:.2f}s".format(
                     path, len(predictions["instances"]), time.time() - start_time
                 )
             )
 
-
-            cv_image = cv2.cvtColor(np.array(visualized_output.get_image()), cv2.COLOR_RGB2BGR)
+            cv_image = cv2.cvtColor(np.array(vis_output.get_image()), cv2.COLOR_RGB2BGR)
             instances = predictions['instances'].to('cpu')
 
-            results.append(
-                {
-                    'img': cv_image,
-                    'instances': instances
-                }
-            )
+            results.append({
+                'img': cv_image,
+                'instances': instances
+            })
 
             if output_path:
-                # Use the basename of the input path for the output filename
                 input_basename = os.path.splitext(os.path.basename(path))[0]
                 out_filename = os.path.join(output_path, f"{input_basename}.webp")
                 cv2.imwrite(out_filename, cv_image, [cv2.IMWRITE_WEBP_QUALITY, 80])
-        
+
         return results
 
 
