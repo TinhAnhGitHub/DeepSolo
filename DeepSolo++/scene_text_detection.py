@@ -1,4 +1,3 @@
-
 import os
 from typing import List, Dict, Any, Optional, Union, Tuple
 import glob
@@ -74,6 +73,7 @@ class BatchPredictor:
 
 
         for original_img in images:
+            print(original_img.shape)
             if self.input_format == 'RGB':
                 original_img = original_img[:, :, ::-1]
             height, width = original_img.shape[:2]
@@ -104,8 +104,8 @@ class SceneTextDetection:
             model_weight,
             config_file
         )
-        self.default_predictor = DefaultPredictor(self.cfg)
-
+#         self.default_predictor = DefaultPredictor(self.cfg)
+        self.default_predictor = "dasd"
         self.batch_predictor = BatchPredictor(self.cfg)
     
 
@@ -172,7 +172,8 @@ class SceneTextDetection:
 
     def _process_multiple_images(self, image_paths: List[str]) -> List[Dict[str, Any]]:
         
-        images = [(path, cv2.cvtColor(cv2.imread(path), cv2.COLOR_BGR2RGB)) for path in image_paths]
+#         images = [(path, cv2.cvtColor(cv2.imread(path), cv2.COLOR_BGR2RGB)) for path in image_paths]
+        images = [ cv2.cvtColor(cv2.imread(path), cv2.COLOR_BGR2RGB) for path in image_paths]
         
 
         start_time = time.time()
@@ -190,12 +191,9 @@ class SceneTextDetection:
                 )
             )
             
-            results.append({
+            results.append([{
                 'path': path,
                 'instances': instances
-            })
+            }])
 
         return results
-        
-        
-       
