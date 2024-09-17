@@ -19,7 +19,6 @@ import detectron2.data.transforms as T
 
 from detectron2.modeling import build_model
 from adet.utils.visualizer import TextVisualizer
-from detectron2.configs import CfgNode
 from detectron2.checkpoint import DetectionCheckpointer
 from detectron2.data import MetadataCatalog
 
@@ -42,7 +41,7 @@ class BatchPredictor:
         aug (T.Augmentation): The augmentation transform for resizing the input images.
         input_format (str): Format of the input image, either "RGB" or "BGR".
     """
-    def __init__(self, cfg: CfgNode):
+    def __init__(self, cfg):
         self.cfg = cfg.clone()  # cfg can be modified by model
         self.model = build_model(self.cfg)
         self.model.eval()
@@ -105,9 +104,9 @@ class SceneTextDetection:
             model_weight,
             config_file
         )
-        self.default_predictor = DefaultPredictor()
+        self.default_predictor = DefaultPredictor(self.cfg)
 
-        self.batch_predictor = BatchPredictor()
+        self.batch_predictor = BatchPredictor(self.cfg)
     
 
     def setup_cfg(
