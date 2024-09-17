@@ -138,8 +138,8 @@ class SceneTextDetection:
             input_path_list = glob.glob(os.path.expanduser(input_path))
 
         assert input_path_list, "No input images found"
-        if output_path:
-            os.makedirs(output_path, exist_ok=True)
+        # if output_path:
+        #     os.makedirs(output_path, exist_ok=True)
 
 
         if len(input_path_list) == 1:
