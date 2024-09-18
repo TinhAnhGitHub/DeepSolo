@@ -172,12 +172,18 @@ class SceneTextDetection:
 
     def _process_multiple_images(self, image_paths: List[str]) -> List[Dict[str, Any]]:
         
-#         images = [(path, cv2.cvtColor(cv2.imread(path), cv2.COLOR_BGR2RGB)) for path in image_paths]
+#        
         images = [ cv2.cvtColor(cv2.imread(path), cv2.COLOR_BGR2RGB) for path in image_paths]
         
 
         start_time = time.time()
         predictions = self.batch_predictor(images)
+        
+        self.logger.info(
+            "{}: detected {} instances in {:.2f}s".format(
+                [f"{path}\n" for path in image_paths], len(image_paths), (time.time() - start_time) / len(images)
+            )
+        )
 
         results = []
 
@@ -185,11 +191,7 @@ class SceneTextDetection:
             instances = pred['instances'].to('cpu')
             path = image_paths[i] 
 
-            self.logger.info(
-                "{}: detected {} instances in {:.2f}s".format(
-                    path, len(instances), (time.time() - start_time) / len(images)
-                )
-            )
+            
             
             results.append([{
                 'path': path,
