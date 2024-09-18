@@ -200,18 +200,18 @@ class SceneTextDetection:
 
         start_time = time.time()
         predictions = self.batch_predictor(images)
-
+        self.logger.info(
+            "Detected instances in {:.2f}s".format(
+                (time.time() - start_time) / len(images)
+            )
+        )
         results = []
 
         for i, pred in enumerate(predictions):
             instances = pred['instances'].to('cpu')
             path = image_paths[i] 
 
-            self.logger.info(
-                "{}: detected {} instances in {:.2f}s".format(
-                    path, len(instances), (time.time() - start_time) / len(images)
-                )
-            )
+            
             
             results.append([{
                 'path': path,
