@@ -1,3 +1,4 @@
+%%writefile /kaggle/working/DeepSolo/DeepSolo++/scene_text_detection_5.py
 import os
 from typing import List, Dict, Any, Optional, Union, Tuple
 import glob
@@ -9,7 +10,7 @@ import torch
 import multiprocessing as mp
 import bisect
 import atexit
-
+import json
 from detectron2.utils.logger import setup_logger
 from detectron2.data import MetadataCatalog
 from detectron2.engine.defaults import DefaultPredictor
@@ -104,9 +105,31 @@ class SceneTextDetection:
             model_weight,
             config_file
         )
-#         self.default_predictor = DefaultPredictor(self.cfg)
-        self.default_predictor = "dasd"
+        self.default_predictor = DefaultPredictor(self.cfg)
         self.batch_predictor = BatchPredictor(self.cfg)
+        self.voc_sizes = self.cfg.MODEL.TRANSFORMER.LANGUAGE.VOC_SIZES
+        self.char_map = {}
+        
+        self.language_list = self.cfg.MODEL.TRANSFORMER.LANGUAGE.CLASSES
+        for (language_type, voc_size) in self.voc_sizes:
+            with open('./char_map/idx2char/' + language_type + '.json') as f:
+                idx2char = json.load(f)
+          # index 0 is the background class
+            assert len(idx2char) == int(voc_size)
+            self.char_map[language_type] = idx2char
+            
+    def ctc_decode_recognition(self, rec, language):
+        last_char = '###'
+        s = ''
+        for c in rec:
+            c = int(c)
+            if c !=0:
+                if last_char != c:
+                    s += self.char_map[language][str(c)]
+                    last_char = c
+            else:
+                last_char = '###'
+        return s
     
 
     def setup_cfg(
@@ -172,18 +195,12 @@ class SceneTextDetection:
 
     def _process_multiple_images(self, image_paths: List[str]) -> List[Dict[str, Any]]:
         
-#        
+#         images = [(path, cv2.cvtColor(cv2.imread(path), cv2.COLOR_BGR2RGB)) for path in image_paths]
         images = [ cv2.cvtColor(cv2.imread(path), cv2.COLOR_BGR2RGB) for path in image_paths]
         
 
         start_time = time.time()
         predictions = self.batch_predictor(images)
-        
-        self.logger.info(
-            "{}: detected {} instances in {:.2f}s".format(
-                [f"{path}\n" for path in image_paths], len(image_paths), (time.time() - start_time) / len(images)
-            )
-        )
 
         results = []
 
@@ -191,7 +208,11 @@ class SceneTextDetection:
             instances = pred['instances'].to('cpu')
             path = image_paths[i] 
 
-            
+            self.logger.info(
+                "{}: detected {} instances in {:.2f}s".format(
+                    path, len(instances), (time.time() - start_time) / len(images)
+                )
+            )
             
             results.append([{
                 'path': path,
