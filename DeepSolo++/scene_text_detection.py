@@ -1,4 +1,3 @@
-%%writefile /kaggle/working/DeepSolo/DeepSolo++/scene_text_detection_5.py
 import os
 from typing import List, Dict, Any, Optional, Union, Tuple
 import glob
