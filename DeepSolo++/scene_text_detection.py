@@ -74,7 +74,6 @@ class BatchPredictor:
 
 
         for original_img in images:
-            print(original_img.shape)
             if self.input_format == 'RGB':
                 original_img = original_img[:, :, ::-1]
             height, width = original_img.shape[:2]
